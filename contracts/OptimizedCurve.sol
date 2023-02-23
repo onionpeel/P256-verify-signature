@@ -6,7 +6,7 @@ interface Multiplier {
   function multiply(uint256 a, uint256 b) external view returns (uint256, uint256);
 }
 
-contract OptimizedCurve {
+library OptimizedCurve {
     // Set parameters for curve.
     uint constant a = 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC;
     uint constant b = 0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B;
@@ -16,12 +16,6 @@ contract OptimizedCurve {
     uint constant n = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551;
 
     uint constant lowSmax = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
-
-    Multiplier private multiplier;
-
-    constructor(address multiplier_) {
-      multiplier = Multiplier(multiplier_);
-    }
 
     /**
      * @dev Inverse of u in the field of modulo m.
@@ -368,7 +362,7 @@ contract OptimizedCurve {
     /**
      * @dev Validate combination of message, signature, and public key.
      */
-    function validateSignature(bytes32 message, uint[2] memory rs, uint[2] memory Q) public view
+    function validateSignature(bytes32 message, uint[2] memory rs, address multiplier) public view
         returns (bool)
     {
         // To disambiguate between public key solutions, include comment below.
@@ -377,10 +371,10 @@ contract OptimizedCurve {
         }
 
         uint sInv = inverseMod(rs[1], n);
-        uint256 a = mulmod(uint(message), sInv, n);
-        uint256 b = mulmod(rs[0], sInv, n);
+        uint256 u = mulmod(uint(message), sInv, n);
+        uint256 v = mulmod(rs[0], sInv, n);
 
-        (uint256 pX, uint256 pY) = multiplier.multiply(a, b);
+        (uint256 pX, uint256 pY) = Multiplier(multiplier).multiply(u, v);
         uint[3] memory P = toProjectivePoint(pX, pY);
 
         if (P[2] == 0) {

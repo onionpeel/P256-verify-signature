@@ -12,12 +12,17 @@ contract P256_mul {
     table = table_;
   }
 
-  function getPrecomputedPoint(uint256 a, uint256 b, uint256 it) private view returns (uint256 x, uint256 y) {
+  function getIndex(uint256 u, uint256 v, uint256 w, uint256 it) private pure returns (uint256 idx) {
+    uint256 nSplits = 256 / w;
+    uint256 shift = w * (nSplits - 1 - it);
+    uint256 mask = 2**w-1;
+    idx = (u >> shift & mask) << w | (v >> shift & mask);
+  }
+
+  function getPrecomputedPoint(uint256 u, uint256 v, uint256 it) private view returns (uint256 x, uint256 y) {
     uint256[2] memory xy;
     address table_ = table;
-    uint256 shift = 4 * (63 - it);
-    uint256 idx =
-      (a >> shift & 0xf) << 4 | (b >> shift & 0xf);
+    uint256 idx = getIndex(u, v, 4, it);
     uint256 offset = 63 + (64 * idx);
     assembly {
       extcodecopy(table_, xy, offset, 64)
@@ -27,9 +32,8 @@ contract P256_mul {
     }
   }
 
-
-  function multiply(uint256 a, uint256 b) public view returns (uint256 aX, uint256 aY) {
-    (aX, aY) = getPrecomputedPoint(a, b, 0);
+  function multiply(uint256 u, uint256 v) public view returns (uint256 aX, uint256 aY) {
+    (aX, aY) = getPrecomputedPoint(u, v, 0);
     uint256 aZ = 1;
 
     for (uint256 nibble = 1; nibble < 64; ++nibble) {
@@ -38,7 +42,7 @@ contract P256_mul {
       (aX, aY, aZ) = twiceProj(aX, aY, aZ);
       (aX, aY, aZ) = twiceProj(aX, aY, aZ);
 
-      (uint256 bX, uint256 bY) = getPrecomputedPoint(a, b, nibble);
+      (uint256 bX, uint256 bY) = getPrecomputedPoint(u, v, nibble);
 
       (aX, aY, aZ) = addProj(aX, aY, aZ, bX, bY, 1);
     }
